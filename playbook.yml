@@ -69,3 +69,20 @@
         src: activemq.service
         dest: /etc/systemd/system/activemq.service
 
+
+    - name: Reload systemd
+      systemd:
+        daemon-reload: yes
+        enabled: yes
+        state: started
+        name: activemq
+      when: not download_result.stat.exists
+
+
+    - name: Check ActiveMQ service
+      command: "systemctl status activemq"
+      changed_when: False
+      register: service_ActiveMQ_status
+      failed_when: "'inactive' in service_ActiveMQ_status.stdout"
+
+
