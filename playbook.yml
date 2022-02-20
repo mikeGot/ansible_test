@@ -1,0 +1,71 @@
+---
+- hosts: serv_57
+  vars:
+    - activemq_version: "5.16.3"
+    - activemq_install_root: "/opt"
+    - activemq_user: "activemq"
+    - memoryUsage: "64"
+    - storeUsage: "100"
+    - tempUsage: "50"
+
+
+  tasks:
+    - name: Check if ActiveMQ download
+      stat:
+        path: "{{ activemq_install_root }}/activemq"
+      register: download_result
+
+    - name: Create User
+      user:
+        name: "{{activemq_user}}"
+        system: yes
+        state: present
+      when: not download_result.stat.exists
+
+
+
+    - name: Download and unarchive
+      unarchive:
+        remote_src: yes
+        src: http://archive.apache.org/dist/activemq/{{ activemq_version }}/apache-activemq-{{ activemq_version }}-bin.tar.gz
+        dest: "{{ activemq_install_root }}"
+        owner: "{{ activemq_user }}"
+        creates: "{{ activemq_install_root }}/activemq"
+      when: not download_result.stat.exists
+
+    - name: Move activemq
+      command: mv "{{ activemq_install_root }}/apache-activemq-{{ activemq_version }}" "{{ activemq_install_root }}/activemq"
+      args:
+        creates: "{{ activemq_install_root }}/activemq"
+      when: not download_result.stat.exists
+
+
+    - name: Install java-11-openjdk
+      yum: name=java-11-openjdk
+      become: yes
+      when: not download_result.stat.exists
+
+    - name: Change memory Usage
+      replace:
+        path: "{{ activemq_install_root }}/activemq/conf/activemq.xml"
+        regexp: 'percentOfJvmHeap=...'
+        replace: 'percentOfJvmHeap="{{memoryUsage}}'
+
+    - name: Change store Usage
+      replace:
+        path: "{{ activemq_install_root }}/activemq/conf/activemq.xml"
+        regexp: 'storeUsage limit=....'
+        replace: 'storeUsage limit="{{storeUsage}}'
+
+    - name: Change temp Usage
+      replace:
+        path: "{{ activemq_install_root }}/activemq/conf/activemq.xml"
+        regexp: 'tempUsage limit=...'
+        replace: 'tempUsage limit="{{tempUsage}}'
+
+
+    - name: Create systemd unit
+      template:
+        src: activemq.service
+        dest: /etc/systemd/system/activemq.service
+
